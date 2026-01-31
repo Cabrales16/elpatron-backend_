@@ -10,8 +10,10 @@ import {
   Eye,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "./Modal";
+import { apiClient } from "../services/api";
+import { StatusChip } from "./enterprise/GovernanceComponents";
 
 interface Lead {
   id: number;
@@ -19,71 +21,17 @@ interface Lead {
   email: string;
   telefono: string;
   empresa: string;
-  estado: "nuevo" | "contactado" | "calificado" | "perdido";
+  estado: "NUEVO" | "CONTACTADO" | "CALIFICADO" | "PERDIDO";
   origen: string;
-  valor: number;
-  fechaCreacion: string;
+  valor_estimado: number;
+  fechaCreacion?: string;
+  created_at?: string;
+  quality_score?: number;
 }
 
-const leadsData: Lead[] = [
-  {
-    id: 1,
-    nombre: "Ana García",
-    email: "ana.garcia@techcorp.com",
-    telefono: "+34 612 345 678",
-    empresa: "TechCorp Solutions",
-    estado: "calificado",
-    origen: "Web",
-    valor: 45000,
-    fechaCreacion: "2026-01-28",
-  },
-  {
-    id: 2,
-    nombre: "Roberto Martínez",
-    email: "r.martinez@innovatech.com",
-    telefono: "+34 623 456 789",
-    empresa: "InnovaTech",
-    estado: "contactado",
-    origen: "Referido",
-    valor: 32000,
-    fechaCreacion: "2026-01-29",
-  },
-  {
-    id: 3,
-    nombre: "Laura Fernández",
-    email: "laura.f@dataservices.com",
-    telefono: "+34 634 567 890",
-    empresa: "Data Services SA",
-    estado: "nuevo",
-    origen: "LinkedIn",
-    valor: 58000,
-    fechaCreacion: "2026-01-30",
-  },
-  {
-    id: 4,
-    nombre: "Carlos Ruiz",
-    email: "carlos.ruiz@cloudsys.com",
-    telefono: "+34 645 678 901",
-    empresa: "CloudSys Inc",
-    estado: "calificado",
-    origen: "Web",
-    valor: 67000,
-    fechaCreacion: "2026-01-30",
-  },
-  {
-    id: 5,
-    nombre: "María López",
-    email: "m.lopez@securenet.com",
-    telefono: "+34 656 789 012",
-    empresa: "SecureNet",
-    estado: "nuevo",
-    origen: "Evento",
-    valor: 41000,
-    fechaCreacion: "2026-01-31",
-  },
-];
-
 export function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isNewLeadModal, setIsNewLeadModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,15 +43,96 @@ export function LeadsPage() {
     empresa: "",
   });
 
+  useEffect(() => {
+    const loadLeads = async () => {
+      try {
+        const workspaceId = 1;
+        const response = await apiClient.getLeads({ workspaceId });
+        console.log("Leads loaded from backend:", response);
+        setLeads(response.data || []);
+      } catch (error) {
+        console.error("Error loading leads:", error);
+        // Datos de ejemplo si el backend no está disponible
+        setLeads([
+          {
+            id: 1,
+            nombre: "Ana García",
+            email: "ana.garcia@techcorp.com",
+            telefono: "+34 612 345 678",
+            empresa: "TechCorp Solutions",
+            estado: "CALIFICADO",
+            origen: "Web",
+            valor_estimado: 45000,
+            created_at: "2026-01-28",
+            quality_score: 95,
+          },
+          {
+            id: 2,
+            nombre: "Roberto Martínez",
+            email: "r.martinez@innovatech.com",
+            telefono: "+34 623 456 789",
+            empresa: "InnovaTech",
+            estado: "CONTACTADO",
+            origen: "Referido",
+            valor_estimado: 32000,
+            created_at: "2026-01-29",
+            quality_score: 85,
+          },
+          {
+            id: 3,
+            nombre: "Laura Fernández",
+            email: "laura.f@dataservices.com",
+            telefono: "+34 634 567 890",
+            empresa: "Data Services SA",
+            estado: "NUEVO",
+            origen: "LinkedIn",
+            valor_estimado: 58000,
+            created_at: "2026-01-30",
+            quality_score: 90,
+          },
+          {
+            id: 4,
+            nombre: "Carlos Ruiz",
+            email: "carlos.ruiz@cloudsys.com",
+            telefono: "+34 645 678 901",
+            empresa: "CloudSys Inc",
+            estado: "CALIFICADO",
+            origen: "Web",
+            valor_estimado: 67000,
+            created_at: "2026-01-30",
+            quality_score: 95,
+          },
+          {
+            id: 5,
+            nombre: "María López",
+            email: "m.lopez@securenet.com",
+            telefono: "+34 656 789 012",
+            empresa: "SecureNet",
+            estado: "NUEVO",
+            origen: "Evento",
+            valor_estimado: 41000,
+            created_at: "2026-01-31",
+            quality_score: 85,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeads();
+  }, []);
+
   const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case "nuevo":
+    const estadoUpper = estado.toUpperCase();
+    switch (estadoUpper) {
+      case "NUEVO":
         return "bg-green-100 text-green-700";
-      case "contactado":
+      case "CONTACTADO":
         return "bg-yellow-100 text-yellow-700";
-      case "calificado":
+      case "CALIFICADO":
         return "bg-green-100 text-green-700";
-      case "perdido":
+      case "PERDIDO":
         return "bg-red-100 text-red-700";
       default:
         return "bg-slate-100 text-slate-700";
@@ -241,81 +270,92 @@ export function LeadsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {leadsData
-                .filter((lead) => {
-                  const matchSearch =
-                    searchTerm === "" ||
-                    lead.nombre
-                      .toLowerCase()
-                      .includes(searchTerm.toLowerCase()) ||
-                    lead.empresa
-                      .toLowerCase()
-                      .includes(searchTerm.toLowerCase()) ||
-                    lead.email.toLowerCase().includes(searchTerm.toLowerCase());
-                  const matchEstado =
-                    selectedEstado === "todos" ||
-                    lead.estado === selectedEstado;
-                  return matchSearch && matchEstado;
-                })
-                .map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-slate-900">
-                          {lead.nombre}
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    Cargando leads...
+                  </td>
+                </tr>
+              ) : leads.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    No hay leads disponibles
+                  </td>
+                </tr>
+              ) : (
+                leads
+                  .filter((lead) => {
+                    const matchSearch =
+                      searchTerm === "" ||
+                      lead.nombre
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase()) ||
+                      lead.empresa
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase()) ||
+                      lead.email.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchEstado =
+                      selectedEstado === "todos" ||
+                      lead.estado.toUpperCase() === selectedEstado.toUpperCase();
+                    return matchSearch && matchEstado;
+                  })
+                  .map((lead) => (
+                    <tr
+                      key={lead.id}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="font-medium text-slate-900">
+                            {lead.nombre}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {lead.empresa}
+                          </div>
                         </div>
-                        <div className="text-sm text-slate-500">
-                          {lead.empresa}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Mail className="w-3 h-3" />
+                            {lead.email}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Phone className="w-3 h-3" />
+                            {lead.telefono}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                          <Mail className="w-3 h-3" />
-                          {lead.email}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusChip status={lead.estado} />
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {lead.origen}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        ${(lead.valor_estimado || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {lead.created_at || lead.fechaCreacion}
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {lead.created_at || lead.fechaCreacion}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedLead(lead)}
+                            className="p-1 hover:bg-slate-100 rounded"
+                          >
+                            <Eye className="w-4 h-4 text-slate-600" />
+                          </button>
+                          <button className="p-1 hover:bg-slate-100 rounded">
+                            <MoreVertical className="w-4 h-4 text-slate-600" />
+                          </button>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                          <Phone className="w-3 h-3" />
-                          {lead.telefono}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${getEstadoColor(lead.estado)}`}
-                      >
-                        {lead.estado.charAt(0).toUpperCase() +
-                          lead.estado.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {lead.origen}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                      ${lead.valor.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {lead.fechaCreacion}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setSelectedLead(lead)}
-                          className="p-1 hover:bg-slate-100 rounded"
-                        >
-                          <Eye className="w-4 h-4 text-slate-600" />
-                        </button>
-                        <button className="p-1 hover:bg-slate-100 rounded">
-                          <MoreVertical className="w-4 h-4 text-slate-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+              )}
             </tbody>
           </table>
         </div>
