@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: elpatron-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: FRONTEND_ORIGINS
+        value: "https://elpatron-946d7.web.app,http://localhost:5173"
+      - key: REQUIRE_AUTH
+        value: "false"

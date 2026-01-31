@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum OperationStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum WorkspaceState {
+  ACTIVE
+  RESTRICTED
+  BLOCKED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+}
+
+enum AuditEntity {
+  USER
+  OPERATION
+  WORKSPACE
+  AUTH
+}
+
+// Users table
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(OPERATOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  operations  Operation[]
+  auditLogs   AuditLog[]   @relation("auditActor")
+  workspace   Workspace?
+}
+
+// Operations table
+model Operation {
+  id             String            @id @default(uuid())
+  title          String
+  description    String?
+  status         OperationStatus   @default(NEW)
+  assigneeUserId String
+  assignee       User              @relation(fields: [assigneeUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  auditLogs      AuditLog[]        @relation("operationAudit")
+
+  @@index([assigneeUserId])
+  @@index([status])
+}
+
+// Audit Logs table
+model AuditLog {
+  id         String       @id @default(uuid())
+  actorUserId String
+  actor      User         @relation("auditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  action     AuditAction
+  entity     AuditEntity
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime     @default(now())
+  operation  Operation?   @relation("operationAudit", fields: [entityId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+// Workspaces table
+model Workspace {
+  id           String          @id @default(uuid())
+  userId       String          @unique
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state        WorkspaceState  @default(ACTIVE)
+  provider     String          @default("SIMULATED")
+  lastCheckAt  DateTime        @default(now())
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([state])
+}
